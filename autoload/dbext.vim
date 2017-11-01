@@ -4149,7 +4149,8 @@ endfunction
 function! s:DB_SQLSRV_getListColumn(table_name)
     let owner      = s:DB_getObjectOwner(a:table_name)
     let table_name = s:DB_getObjectName(a:table_name)
-    let query =   "select convert(varchar,c.name) ".
+    let query =   "set nocount on\r\n".              
+                \ "select convert(varchar,c.name) ". 
                 \ "  from sysobjects o, sysusers u, syscolumns c ".
                 \ " where o.uid=u.uid ".
                 \ "   and o.id=c.id ".
@@ -4199,6 +4200,7 @@ function! s:DB_SQLSRV_getListView(view_prefix)
 endfunction
 function! s:DB_SQLSRV_getDictionaryTable() "{{{
     let result = s:DB_SQLSRV_execSql(
+                \ "set nocount on\r\n".
                 \ "select ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name)+'.'+":'').
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
@@ -4210,6 +4212,7 @@ function! s:DB_SQLSRV_getDictionaryTable() "{{{
 endfunction "}}}
 function! s:DB_SQLSRV_getDictionaryProcedure() "{{{
     let result = s:DB_SQLSRV_execSql(
+                \ "set nocount on\r\n".
                 \ "select ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name)+'.'+":'').
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
@@ -4221,6 +4224,7 @@ function! s:DB_SQLSRV_getDictionaryProcedure() "{{{
 endfunction "}}}
 function! s:DB_SQLSRV_getDictionaryView() "{{{
     let result = s:DB_SQLSRV_execSql(
+                \ "set nocount on\r\n".
                 \ "select ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name)+'.'+":'').
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
