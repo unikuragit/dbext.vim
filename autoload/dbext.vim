@@ -4182,7 +4182,7 @@ function! s:DB_SQLSRV_getListProcedure(proc_prefix)
                 \ "select convert(varchar,o.name), convert(varchar,u.name) ".
                 \ "  from sysobjects o, sysusers u ".
                 \ " where o.uid=u.uid ".
-                \ "   and o.xtype='P' ".
+                \ "   and (o.xtype='P' or o.xtype='FN' or o.xtype='IF' or o.xtype='TF') ".
                 \ "   and o.name like '".a:proc_prefix."%' ".
                 \ " order by o.name"
                 \ )
@@ -4205,7 +4205,7 @@ function! s:DB_SQLSRV_getDictionaryTable() "{{{
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
                 \ " where o.uid=u.uid ".
-                \ "   and o.xtype='U' ".
+                \ "   and (o.xtype='P' or o.xtype='FN' or o.xtype='IF' or o.xtype='TF') ".
                 \ " order by ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name), ":'')."o.name"
                 \ )
     return s:DB_SQLSRV_stripHeaderFooter(result)
