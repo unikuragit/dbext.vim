@@ -1645,8 +1645,10 @@ function! s:DB_stripLeadFollowSpaceLines(str)
     " Now take care of the other end of the string
     let stripped = substitute(stripped, '\([ \t]\+\)\([\r\n]\+\)', '\2', 'g')
 
-    " Replace \r\n or \r to \n (for MS-SQLServer)
-    let stripped = substitute(stripped, '\r\n?', '\n', 'g')
+    if b:dbext_type == 'SQLSRV'
+      " Replace \r\n or \r to \n (for MS-SQLServer)
+      let stripped = substitute(stripped, '\r\n?', '\n', 'g')
+    endif
 
     " Albie patch
     " Unfortunately, the following substitute concats the first 2 lines, to
