@@ -4107,6 +4107,12 @@ function! s:DB_SQLSRV_execSql(str)
         let cmd = cmd .  ' -E'
     endif
 
+    if has('win32unix')
+      let l:dbext_tempfile = '`cygpath -w ' . s:dbext_tempfile . '`'
+    else
+      let l:dbext_tempfile = s:dbext_tempfile
+    endif
+
     let cmd = cmd .
                 \ s:DB_option(' -U ', s:DB_get("user"), ' ') .
                 \ s:DB_option(' -P',  s:DB_get("passwd"), ' ') .
@@ -4114,7 +4120,7 @@ function! s:DB_SQLSRV_execSql(str)
                 \ s:DB_option(' -S ', s:DB_get("srvname"), ' ') .
                 \ s:DB_option(' -d ', s:DB_get("dbname"), ' ') .
                 \ s:DB_option(' ', dbext#DB_getWTypeDefault("extra"), '') .
-                \ ' -i ' . s:dbext_tempfile
+                \ ' -i ' . l:dbext_tempfile
     let result = s:DB_runCmdJobSupport(dbext_bin, cmd, output, "")
 
     return result
