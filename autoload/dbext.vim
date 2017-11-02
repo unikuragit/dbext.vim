@@ -4155,8 +4155,8 @@ endfunction
 function! s:DB_SQLSRV_getListColumn(table_name)
     let owner      = s:DB_getObjectOwner(a:table_name)
     let table_name = s:DB_getObjectName(a:table_name)
-    let query =   "set nocount on\r\n".              
-                \ "select convert(varchar,c.name) ". 
+    let query =   "set nocount on\r\n".
+                \ "select convert(varchar,c.name) ".
                 \ "  from sysobjects o, sysusers u, syscolumns c ".
                 \ " where o.uid=u.uid ".
                 \ "   and o.id=c.id ".
@@ -4211,7 +4211,7 @@ function! s:DB_SQLSRV_getDictionaryTable() "{{{
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
                 \ " where o.uid=u.uid ".
-                \ "   and (o.xtype='P' or o.xtype='FN' or o.xtype='IF' or o.xtype='TF') ".
+                \ "   and o.xtype='U' ".
                 \ " order by ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name), ":'')."o.name"
                 \ )
     return s:DB_SQLSRV_stripHeaderFooter(result)
@@ -4223,7 +4223,7 @@ function! s:DB_SQLSRV_getDictionaryProcedure() "{{{
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
                 \ " where o.uid=u.uid ".
-                \ "   and o.xtype='P' ".
+                \ "   and (o.xtype='P' or o.xtype='FN' or o.xtype='IF' or o.xtype='TF') ".
                 \ " order by ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name), ":'')."o.name"
                 \ )
     return s:DB_SQLSRV_stripHeaderFooter(result)
