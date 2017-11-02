@@ -4109,6 +4109,9 @@ function! s:DB_SQLSRV_execSql(str)
         let cmd = cmd .  ' -E'
     endif
 
+    if executable('nkf')
+      call system(" nkf -x -W8 -s --in-place " . s:dbext_tempfile)
+    endif
     if has('win32unix')
       let l:dbext_tempfile = '`cygpath -w ' . s:dbext_tempfile . '`'
     else
