@@ -106,7 +106,7 @@ function! dbext#DB_buildLists()
     call add(s:db_types_mv, 'HANA')
     " SAP Sybase IQ (fishburn)
     call add(s:db_types_mv, 'IQ')
-    " Crate (Mathias Fußenegger)
+    " Crate (Mathias Fuﾃ歹negger)
     call add(s:db_types_mv, 'CRATE')
 
     " The following are only available with the
@@ -1329,7 +1329,7 @@ function! s:DB_varToString(name)
     endif
 endfunction
 
-"FIXME: Csinálni kell erre egy kommandot.
+"FIXME: Csinﾃ｡lni kell erre egy kommandot.
 function! s:DB_getParameters(scope)
     "scope must be 'b', 'g', 'd' (buffer, global, default)
     if (a:scope == "b")
@@ -4121,7 +4121,7 @@ function! s:DB_SQLSRV_execSql(str)
       call system(" nkf -x -W8 -s --in-place " . s:dbext_tempfile)
     endif
     if has('win32unix')
-      let l:dbext_tempfile = escape(system('cygpath -w ' . s:dbext_tempfile), ' \')
+      let l:dbext_tempfile = escape(substitute(system('cygpath -w ' . s:dbext_tempfile), '\n', '', ''), '\')
     else
       let l:dbext_tempfile = s:dbext_tempfile
     endif
