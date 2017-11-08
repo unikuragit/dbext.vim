@@ -7794,7 +7794,7 @@ function! s:DB_addToResultBuffer(output, do_clear)
         endif
 
     endif
-    if get(g:, 1, 'dbext_remove_blank_lines_result_buffer')
+    if get(g:, 'dbext_remove_blank_lines_result_buffer', 1)
         " Since this is a small window, remove any blanks lines
         silent %g/^\s*$/d
         " Fix the ^M characters, if any
