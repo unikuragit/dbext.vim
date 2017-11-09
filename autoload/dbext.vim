@@ -167,6 +167,7 @@ function! dbext#DB_buildLists()
     " Configuration parameters
     let s:config_params_mv = []
     call add(s:config_params_mv, 'use_sep_result_buffer')
+    call add(s:config_params_mv, 'use_result_buffer_output_directory')
     call add(s:config_params_mv, 'query_statements')
     call add(s:config_params_mv, 'parse_statements')
     call add(s:config_params_mv, 'prompt_for_parameters')
@@ -885,6 +886,7 @@ function! s:DB_getDefault(name)
     elseif a:name ==# "buffer_lines"            |return (exists("g:dbext_default_buffer_lines")?g:dbext_default_buffer_lines.'':10)
     elseif a:name ==# "use_result_buffer"       |return (exists("g:dbext_default_use_result_buffer")?g:dbext_default_use_result_buffer.'':1)
     elseif a:name ==# "use_sep_result_buffer"   |return (exists("g:dbext_default_use_sep_result_buffer")?g:dbext_default_use_sep_result_buffer.'':0)
+    elseif a:name ==# "use_result_buffer_output_directory"   |return (exists("g:dbext_default_use_result_buffer_output_directory")?g:dbext_default_use_result_buffer_output_directory.'':'')
     elseif a:name ==# "display_cmd_line"        |return (exists("g:dbext_default_display_cmd_line")?g:dbext_default_display_cmd_line.'':0)
     elseif a:name ==# "prompt_for_parameters"   |return (exists("g:dbext_default_prompt_for_parameters")?g:dbext_default_prompt_for_parameters.'':1)
     elseif a:name ==# "query_statements"        |return (exists("g:dbext_default_query_statements")?g:dbext_default_query_statements.'':'select,update,delete,insert,create,grant,alter,call,exec,merge,with')
@@ -6818,6 +6820,11 @@ function! s:DB_resBufName()
     else
         let res_buf_name = "Result"
     endif
+    let l:res_out_dir = s:DB_get('use_result_buffer_output_directory')
+    if l:res_out_dir != ''
+      let res_buf_name = l:res_out_dir . res_buf_name
+    endif
+
     return res_buf_name
 endfunction
 " }}}
@@ -7805,6 +7812,7 @@ function! s:DB_addToResultBuffer(output, do_clear)
     setlocal nomodified
     setlocal nowrap
     setlocal noswapfile
+    setlocal buftype=nofile
     setlocal nonumber
     " Go to top of output
     norm gg
