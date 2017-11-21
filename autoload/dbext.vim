@@ -4111,14 +4111,6 @@ function! s:DB_SQLSRV_execSql(str)
         let cmd = cmd .  ' -E'
     endif
 
-    " Use enviroment variable SQLCMDPASSWORD
-    let l:ex=dbext#DB_getWTypeDefault("extra")
-    let l:usingenvpw=0
-    if match(l:ex, "envpw") != -1
-      let l:usingenvpw=1
-      let l:ex=substitute(dbext#DB_getWTypeDefault("extra"), "envpw", "", "g")
-    endif
-
     if executable('nkf')
       call system(" nkf -x -W8 -s --in-place " . s:dbext_tempfile)
     endif
@@ -4130,7 +4122,7 @@ function! s:DB_SQLSRV_execSql(str)
 
     let cmd = cmd .
                 \ s:DB_option(' -U ', s:DB_get("user"), ' ') .
-                \ (l:usingenvpw == 0 ? s:DB_option(' -P',  s:DB_get("passwd"), ' ') : "") .
+                \ s:DB_option(' -P',  s:DB_get("passwd"), ' ') .
                 \ s:DB_option(' -H ', s:DB_get("host"), ' ') .
                 \ s:DB_option(' -S ', s:DB_get("srvname"), ' ') .
                 \ s:DB_option(' -d ', s:DB_get("dbname"), ' ') .
