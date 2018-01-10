@@ -106,7 +106,7 @@ function! dbext#DB_buildLists()
     call add(s:db_types_mv, 'HANA')
     " SAP Sybase IQ (fishburn)
     call add(s:db_types_mv, 'IQ')
-    " Crate (Mathias Fu�enegger)
+    " Crate (Mathias Fuﾃ歹negger)
     call add(s:db_types_mv, 'CRATE')
 
     " The following are only available with the
@@ -167,6 +167,7 @@ function! dbext#DB_buildLists()
     " Configuration parameters
     let s:config_params_mv = []
     call add(s:config_params_mv, 'use_sep_result_buffer')
+    call add(s:config_params_mv, 'use_result_buffer_output_directory')
     call add(s:config_params_mv, 'query_statements')
     call add(s:config_params_mv, 'parse_statements')
     call add(s:config_params_mv, 'prompt_for_parameters')
@@ -888,6 +889,7 @@ function! s:DB_getDefault(name)
     elseif a:name ==# "buffer_lines"            |return (exists("g:dbext_default_buffer_lines")?g:dbext_default_buffer_lines.'':10)
     elseif a:name ==# "use_result_buffer"       |return (exists("g:dbext_default_use_result_buffer")?g:dbext_default_use_result_buffer.'':1)
     elseif a:name ==# "use_sep_result_buffer"   |return (exists("g:dbext_default_use_sep_result_buffer")?g:dbext_default_use_sep_result_buffer.'':0)
+    elseif a:name ==# "use_result_buffer_output_directory"   |return (exists("g:dbext_default_use_result_buffer_output_directory")?g:dbext_default_use_result_buffer_output_directory.'':'')
     elseif a:name ==# "display_cmd_line"        |return (exists("g:dbext_default_display_cmd_line")?g:dbext_default_display_cmd_line.'':0)
     elseif a:name ==# "prompt_for_parameters"   |return (exists("g:dbext_default_prompt_for_parameters")?g:dbext_default_prompt_for_parameters.'':1)
     elseif a:name ==# "query_statements"        |return (exists("g:dbext_default_query_statements")?g:dbext_default_query_statements.'':'select,update,delete,insert,create,grant,alter,call,exec,merge,with')
@@ -1335,7 +1337,7 @@ function! s:DB_varToString(name)
     endif
 endfunction
 
-"FIXME: Csin�lni kell erre egy kommandot.
+"FIXME: Csinﾃ｡lni kell erre egy kommandot.
 function! s:DB_getParameters(scope)
     "scope must be 'b', 'g', 'd' (buffer, global, default)
     if (a:scope == "b")
@@ -1650,6 +1652,11 @@ function! s:DB_stripLeadFollowSpaceLines(str)
     let stripped = substitute(a:str, '^[\r\n]\+', '', '')
     " Now take care of the other end of the string
     let stripped = substitute(stripped, '\([ \t]\+\)\([\r\n]\+\)', '\2', 'g')
+
+    if b:dbext_type == 'SQLSRV'
+      " Replace \r\n or \r to \n (for MS-SQLServer)
+      let stripped = substitute(stripped, '\r\n?', '\n', 'g')
+    endif
 
     " Albie patch
     " Unfortunately, the following substitute concats the first 2 lines, to
@@ -4110,6 +4117,15 @@ function! s:DB_SQLSRV_execSql(str)
         let cmd = cmd .  ' -E'
     endif
 
+    if executable('nkf')
+      call system(" nkf -x -W8 -s --in-place " . s:dbext_tempfile)
+    endif
+    if has('win32unix')
+      let l:dbext_tempfile = escape(substitute(system('cygpath -w ' . s:dbext_tempfile), '\n', '', ''), '\')
+    else
+      let l:dbext_tempfile = s:dbext_tempfile
+    endif
+
     let cmd = cmd .
                 \ s:DB_option(' -U ', s:DB_get("user"), ' ') .
                 \ s:DB_option(' -P',  s:DB_get("passwd"), ' ') .
@@ -4117,7 +4133,7 @@ function! s:DB_SQLSRV_execSql(str)
                 \ s:DB_option(' -S ', s:DB_get("srvname"), ' ') .
                 \ s:DB_option(' -d ', s:DB_get("dbname"), ' ') .
                 \ s:DB_option(' ', dbext#DB_getWTypeDefault("extra"), '') .
-                \ ' -i ' . s:dbext_tempfile
+                \ ' -i ' . l:dbext_tempfile
     let result = s:DB_runCmdJobSupport(dbext_bin, cmd, output, "")
 
     return result
@@ -4152,7 +4168,8 @@ endfunction
 function! s:DB_SQLSRV_getListColumn(table_name)
     let owner      = s:DB_getObjectOwner(a:table_name)
     let table_name = s:DB_getObjectName(a:table_name)
-    let query =   "select convert(varchar,c.name) ".
+    let query =   "set nocount on\r\n".
+                \ "select convert(varchar,c.name) ".
                 \ "  from sysobjects o, sysusers u, syscolumns c ".
                 \ " where o.uid=u.uid ".
                 \ "   and o.id=c.id ".
@@ -4184,7 +4201,7 @@ function! s:DB_SQLSRV_getListProcedure(proc_prefix)
                 \ "select convert(varchar,o.name), convert(varchar,u.name) ".
                 \ "  from sysobjects o, sysusers u ".
                 \ " where o.uid=u.uid ".
-                \ "   and o.xtype='P' ".
+                \ "   and (o.xtype='P' or o.xtype='FN' or o.xtype='IF' or o.xtype='TF') ".
                 \ "   and o.name like '".a:proc_prefix."%' ".
                 \ " order by o.name"
                 \ )
@@ -4202,6 +4219,7 @@ function! s:DB_SQLSRV_getListView(view_prefix)
 endfunction
 function! s:DB_SQLSRV_getDictionaryTable() "{{{
     let result = s:DB_SQLSRV_execSql(
+                \ "set nocount on\r\n".
                 \ "select ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name)+'.'+":'').
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
@@ -4213,17 +4231,19 @@ function! s:DB_SQLSRV_getDictionaryTable() "{{{
 endfunction "}}}
 function! s:DB_SQLSRV_getDictionaryProcedure() "{{{
     let result = s:DB_SQLSRV_execSql(
+                \ "set nocount on\r\n".
                 \ "select ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name)+'.'+":'').
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
                 \ " where o.uid=u.uid ".
-                \ "   and o.xtype='P' ".
+                \ "   and (o.xtype='P' or o.xtype='FN' or o.xtype='IF' or o.xtype='TF') ".
                 \ " order by ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name), ":'')."o.name"
                 \ )
     return s:DB_SQLSRV_stripHeaderFooter(result)
 endfunction "}}}
 function! s:DB_SQLSRV_getDictionaryView() "{{{
     let result = s:DB_SQLSRV_execSql(
+                \ "set nocount on\r\n".
                 \ "select ".(s:DB_get('dict_show_owner')==1?"convert(varchar,u.name)+'.'+":'').
                 \ "       convert(varchar,o.name) ".
                 \ "  from sysobjects o, sysusers u ".
@@ -6798,6 +6818,11 @@ function! s:DB_resBufName()
     else
         let res_buf_name = "Result"
     endif
+    let l:res_out_dir = s:DB_get('use_result_buffer_output_directory')
+    if l:res_out_dir != ''
+      let res_buf_name = l:res_out_dir . res_buf_name
+    endif
+
     return res_buf_name
 endfunction
 " }}}
@@ -7852,16 +7877,18 @@ function! s:DB_addToResultBuffer(output, do_clear)
         endif
 
     endif
-
-    " Since this is a small window, remove any blanks lines
-    silent %g/^\s*$/d
-    " Fix the ^M characters, if any
-    silent execute "%s/\<C-M>\\+$//e"
+    if get(g:, 'dbext_remove_blank_lines_result_buffer', 1)
+        " Since this is a small window, remove any blanks lines
+        silent %g/^\s*$/d
+        " Fix the ^M characters, if any
+        silent execute "%s/\<C-M>\\+$//e"
+    endif
     " Dont allow modifications, and do not wrap the text, since
     " the data may be lined up for columns
     setlocal nomodified
     setlocal nowrap
     setlocal noswapfile
+    setlocal buftype=nofile
     setlocal nonumber
     " Go to top of output
     norm gg
