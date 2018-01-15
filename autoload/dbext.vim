@@ -7184,13 +7184,18 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
     let s:dbext_job_sql      = a:sql
     let l:job_bufnr          = 0
 
+    let l:db_type  = s:DB_get('type')
+    let l:exec_bin = s:DB_get('SQLSRV_bin')
+
     let l:options = {}
     let l:options['callback'] = function('s:DB_runCmdJobOnCallback')
     let l:options['close_cb'] = function('s:DB_runCmdJobClose')
     let l:options['exit_cb'] = function('s:DB_runCmdJobOnExit')
     let l:options['out_io'] = 'pipe'
     let l:options['err_io'] = 'out'
-    let l:options['in_io'] = 'null'
+    if !(l:db_type == 'SQLSRV' && l:exec_bin == 'sqlcmd')
+      let l:options['in_io'] = 'null'
+    endif
     if cmd =~ s:DB_get('job_pipe_regex')
         " If the cmd pipes in the SQL from the dbext_tempfile
         " then remove this from the command line and specify
