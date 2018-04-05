@@ -307,6 +307,7 @@ use warnings;
 use strict;
 use Data::Dumper qw( Dumper );
 use DBI;
+use Encode 'decode';
 
 my %connections;
 my @result_headers;
@@ -1203,7 +1204,7 @@ sub db_query
     ($conn_local, $driver) = db_get_connection();
     my $sth = undef;
 
-    $sth = $conn_local->prepare( $sql );
+    $sth = $conn_local->prepare( decode("UTF-8", $sql ) );
     # db_echo( "db_query:25".DBI::errstr );
     # db_debug("db_query:prepared:".$sql);
     # It is possible for an error to occur only when fetching data.
