@@ -4173,7 +4173,6 @@ function! s:DB_SQLSRV_getListColumn(table_name)
                 \ "  from sysobjects o, sysusers u, syscolumns c ".
                 \ " where o.uid=u.uid ".
                 \ "   and o.id=c.id ".
-                \ "   and o.xtype='U' ".
                 \ "   and o.name = '".table_name."' "
     if strlen(owner) > 0
         let query = query .
