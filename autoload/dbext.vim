@@ -4105,9 +4105,15 @@ function! s:DB_SQLSRV_execSql(str)
         let output = output . terminator
     endif
 
-    exe 'redir! > ' . s:dbext_tempfile
-    silent echo output
-    redir END
+    if exists('*writefile')
+      call writefile(map(split(output, '\r\n\?\|\n', 1),
+          \ 'iconv(v:val, ( &fenc != "" ? &fenc : ( &enc != "" ? &enc : ( has("win32") ? "cp932" : "utf-8"))), "cp932") . "\r"')
+          \ , s:dbext_tempfile)
+    else
+      exe 'redir! > ' . s:dbext_tempfile
+      silent echo output
+      redir END
+    endif
 
     let dbext_bin = s:DB_fullPath2Bin(dbext#DB_getWType("bin"))
 
@@ -4117,9 +4123,6 @@ function! s:DB_SQLSRV_execSql(str)
         let cmd = cmd .  ' -E'
     endif
 
-    if executable('nkf')
-      call system(" nkf -x -W8 -s --in-place " . s:dbext_tempfile)
-    endif
     if has('win32unix')
       let l:dbext_tempfile = escape(substitute(system('cygpath -w ' . s:dbext_tempfile), '\n', '', ''), '\')
     else
