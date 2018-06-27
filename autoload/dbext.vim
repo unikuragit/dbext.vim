@@ -4107,7 +4107,7 @@ function! s:DB_SQLSRV_execSql(str)
 
     if exists('*writefile')
       call writefile(map(split(output, '\r\n\?\|\n', 1),
-          \ 'iconv(v:val, ( &fenc != "" ? &fenc : ( &enc != "" ? &enc : ( has("win32") ? "cp932" : "utf-8"))), "cp932") . "\r"')
+          \ 'iconv(v:val, (&enc != "" ? &enc : ( has("win32") ? "cp932" : "utf-8")), "cp932") . "\r"')
           \ , s:dbext_tempfile)
     else
       exe 'redir! > ' . s:dbext_tempfile
