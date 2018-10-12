@@ -51,8 +51,10 @@ let s:dbext_buffers_with_dict_files = []
 let s:dbext_buffers_connected = []
 " +shellslash is set on windows so it can be used to decide
 " what type of slash to use
-let s:dbext_tempfile = fnamemodify(tempname(), ":h")
-let s:dbext_tempfile = s:dbext_tempfile.(s:dbext_tempfile =~ '^/' ? '/' : '\').'dbext.sql'
+let s:dbext_tempfilename = tempname()
+let s:dbext_filespecified = fnamemodify(s:dbext_tempfilename, ':t:r')
+let s:dbext_tempfilepath = fnamemodify(s:dbext_tempfilename, ":h")
+let s:dbext_tempfile = s:dbext_tempfilepath.(s:dbext_tempfilepath =~ '^/' ? '/' : '\').'dbext_' . fnamemodify(s:dbext_filespecified, ':t:r') . '.sql'
 "let s:dbext_tempfile = fnamemodify(tempname(), ":h").((has('win32') && ! exists('+shellslash'))?'\':(has('vms')?'':'/')).'dbext.sql'
 "let s:dbext_tempfile = fnamemodify(tempname(), ":h")
 "            \ ((has('win32') && ! exists('+shellslash'))?'\':(has('vms')?'':'/')).
@@ -10236,5 +10238,8 @@ call s:DB_resetGlobalParameters()
 
 let &cpo = s:cpo_save
 unlet s:cpo_save
+
+unlet s:dbext_tempfilename
+unlet s:dbext_tempfilepath
 
 " vim:fdm=marker:nowrap:ts=4:expandtab:ff=unix:
