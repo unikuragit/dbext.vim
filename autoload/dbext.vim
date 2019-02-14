@@ -6392,7 +6392,11 @@ endfunction
 "}}}
 " General {{{
 function! s:DB_infoMsg(msg)
-    echomsg a:msg
+    if get(g:, 'dbext_suppress_message', 0)
+        let g:dbext_info_message=a:msg
+    else
+        echomsg a:msg
+    endif
 endfunction
 
 function! s:DB_warningMsg(msg)
@@ -7310,7 +7314,11 @@ function! s:DB_runCmdJobOnCallback(channel, msg)
 	if type(a:msg) != 1
 		return
 	endif
-    let s:dbext_job_result     .= a:msg . "\n"
+    if g:dbext_async_write_result_buffer
+      call s:DB_addToResultBuffer(a:msg, "add")
+    else
+      let s:dbext_job_result     .= a:msg . "\n"
+    endif
 endfunc
 " invoked on "exit_cb" when job exited
 function! s:DB_runCmdJobOnExit(job, msg)
@@ -7433,8 +7441,10 @@ function! s:DB_runCmdJobFinish(channel)
             endif
         endif
 
-        " Return to original window
-        exec s:dbext_prev_winnr."wincmd w"
+        if !g:dbext_async_write_result_buffer
+          " Return to original window
+          exec s:dbext_prev_winnr."wincmd w"
+        endif
     endif
 
     return
@@ -7619,8 +7629,18 @@ function! s:DB_switchToBuffer(buf_name, buf_file, get_buf_nr_name)
         exec ":silent! e " . escape(a:buf_file, ' ')
         " Save buffer id
         call s:DB_set(a:get_buf_nr_name, bufnr('%'))
+        if g:dbext_async_write_result_buffer
+          setlocal nomodified
+          setlocal nowrap
+          setlocal noswapfile
+          setlocal buftype=nofile
+          setlocal nonumber
+        endif
     else
         " If the buffer is visible, switch to it
+        if g:dbext_async_write_result_buffer
+          return 0
+        endif
         exec bufwinnr(buf_nr) . "wincmd w"
     endif
 
@@ -7832,13 +7852,27 @@ function! s:DB_addToResultBuffer(output, do_clear)
         " xnoremap <buffer> <silent> d   :call s:DB_removeVariable()<CR>
         " nnoremap <buffer> <silent> dd  :DBVarRangeAssign!<CR>
         " xnoremap <buffer> <silent> d   :DBVarRangeAssign!<CR>
+        nnoremap <buffer> q                :DBResultsClose<cr>
+        nnoremap <buffer> <silent> a       :call <SID>DB_set('autoclose', (s:DB_get('autoclose')==1?0:1))<CR>
+        nnoremap <buffer> <silent> <space> :DBResultsToggleResize<cr>
+    endif
+
+    if g:dbext_async_write_result_buffer
+        if a:do_clear == "clear"
+            call deletebufline(res_buf_name, 1, '$')
+            call setbufline(res_buf_name, 1, "Connection: ".conn_props.' at '.strftime("%H:%M"))
+        else
+            let lastline = len(getbufline(res_buf_name, 1, '$')) + 1
+            call setbufline(res_buf_name, lastline, iconv(a:output, g:dbext_async_result_buffer_encoding, &enc))
+        endif
+        return res_bufnr
     endif
 
     setlocal modified
-    " Create a buffer mapping to close this window
-    nnoremap <buffer> q                :DBResultsClose<cr>
-    nnoremap <buffer> <silent> a       :call <SID>DB_set('autoclose', (s:DB_get('autoclose')==1?0:1))<CR>
-    nnoremap <buffer> <silent> <space> :DBResultsToggleResize<cr>
+    "" Create a buffer mapping to close this window
+    "nnoremap <buffer> q                :DBResultsClose<cr>
+    "nnoremap <buffer> <silent> a       :call <SID>DB_set('autoclose', (s:DB_get('autoclose')==1?0:1))<CR>
+    "nnoremap <buffer> <silent> <space> :DBResultsToggleResize<cr>
     if hasmapto('DB_historyDel')
         try
             silent! unmap <buffer> dd
