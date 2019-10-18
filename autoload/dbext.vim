@@ -7314,7 +7314,8 @@ function! s:DB_runCmdJobOnCallback(channel, msg)
 	if type(a:msg) != 1
 		return
 	endif
-    if g:dbext_async_write_result_buffer
+    let l:db_type = s:DB_get('type')
+    if g:dbext_async_write_result_buffer && l:db_type !~ '\<DBI\>\|\<ODBC\>'
       call s:DB_addToResultBuffer(a:msg, "add")
     else
       let s:dbext_job_result     .= a:msg . "\n"
@@ -7441,7 +7442,7 @@ function! s:DB_runCmdJobFinish(channel)
             endif
         endif
 
-        if !g:dbext_async_write_result_buffer
+        if !g:dbext_async_write_result_buffer || l:db_type =~ '\<DBI\>\|\<ODBC\>'
           " Return to original window
           exec s:dbext_prev_winnr."wincmd w"
         endif
@@ -7539,6 +7540,7 @@ function! s:DB_switchToBuffer(buf_name, buf_file, get_buf_nr_name)
     " Get the previously stored buffer number
     let res_buf_nr_str  = s:DB_get('result_bufnr')
     let his_buf_nr_str  = s:DB_get('history_bufnr')
+    let l:db_type       = s:DB_get('type')
 
     " Get the previously stored buffer number
     let buf_nr_str  = s:DB_get(a:get_buf_nr_name)
@@ -7629,7 +7631,7 @@ function! s:DB_switchToBuffer(buf_name, buf_file, get_buf_nr_name)
         exec ":silent! e " . escape(a:buf_file, ' ')
         " Save buffer id
         call s:DB_set(a:get_buf_nr_name, bufnr('%'))
-        if g:dbext_async_write_result_buffer
+        if g:dbext_async_write_result_buffer && l:db_type !~ '\<DBI\>\|\<ODBC\>'
           setlocal nomodified
           setlocal nowrap
           setlocal noswapfile
@@ -7638,7 +7640,7 @@ function! s:DB_switchToBuffer(buf_name, buf_file, get_buf_nr_name)
         endif
     else
         " If the buffer is visible, switch to it
-        if g:dbext_async_write_result_buffer
+        if g:dbext_async_write_result_buffer && l:db_type !~ '\<DBI\>\|\<ODBC\>'
           return 0
         endif
         exec bufwinnr(buf_nr) . "wincmd w"
@@ -7838,6 +7840,7 @@ function! s:DB_addToResultBuffer(output, do_clear)
     let res_bufnr      = 0
     let conn_props     = s:DB_getTitle()
     let dbi_orient     = s:DB_get('DBI_orientation')
+    let l:db_type      = s:DB_get('type')
 
     call s:DB_saveSize(res_buf_name)
 
@@ -7857,7 +7860,7 @@ function! s:DB_addToResultBuffer(output, do_clear)
         nnoremap <buffer> <silent> <space> :DBResultsToggleResize<cr>
     endif
 
-    if g:dbext_async_write_result_buffer
+    if g:dbext_async_write_result_buffer && l:db_type !~ '\<DBI\>\|\<ODBC\>'
         if a:do_clear == "clear"
             call deletebufline(res_buf_name, 1, '$')
             call setbufline(res_buf_name, 1, "Connection: ".conn_props.' at '.strftime("%H:%M"))
