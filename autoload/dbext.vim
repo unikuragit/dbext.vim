@@ -3736,9 +3736,15 @@ function! s:DB_PGSQL_execSql(str)
         let output = output . terminator
     endif
 
-    exe 'redir! > ' . s:dbext_tempfile
-    silent echo output
-    redir END
+    if exists('*writefile')
+      call writefile(map(split(output, '\r\n\?\|\n', 1),
+          \ 'iconv(v:val, (&enc != "" ? &enc : ( has("win32") ? "cp932" : "utf-8")), "cp932") . "\r"')
+          \ , s:dbext_tempfile)
+    else
+      exe 'redir! > ' . s:dbext_tempfile
+      silent echo output
+      redir END
+    endif
 
     let dbext_bin = s:DB_fullPath2Bin(dbext#DB_getWType("bin"))
 
