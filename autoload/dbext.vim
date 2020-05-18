@@ -3768,11 +3768,22 @@ endfunction
 function! s:DB_PGSQL_describeProcedure(procedure_name)
     let owner      = s:DB_getObjectOwner(a:procedure_name)
     let proc_name  = s:DB_getObjectName(a:procedure_name)
-    let query =   "SELECT p.* ".
-                \ "  FROM pg_proc p, pg_type t, pg_language l " .
-                \ " WHERE p.proargtypes = t.oid " .
-                \ "   AND p.prolang = t.oid " .
-                \ "   AND p.proname = '" . proc_name . "'"
+    let query =
+      \ "select n.nspname as schema_name, " .
+      \ "  p.proname as specific_name, " .
+      \ "  l.lanname as language, " .
+      \ "  case when l.lanname = 'internal' then p.prosrc " .
+      \ "  else pg_get_functiondef(p.oid) " .
+      \ "  end as definition, " .
+      \ "  pg_get_function_arguments(p.oid) as arguments " .
+      \ "from pg_proc p " .
+      \ "  left join pg_namespace n on p.pronamespace = n.oid " .
+      \ "  left join pg_language l on p.prolang = l.oid " .
+      \ "  left join pg_type t on t.oid = p.prorettype  " .
+      \ "where ( " .
+      \ "  p.proname = '" . proc_name . "' OR " .
+      \ "  p.proname = lower('" . proc_name . "') " .
+      \ ") "
     " let query =   "SELECT t.typname, t.typdefault, t.typinput " .
     "             \ "     , t.typoutput, l.lanname " .
     "             \ "  FROM pg_proc p, pg_type t, pg_language l " .
@@ -3782,7 +3793,7 @@ function! s:DB_PGSQL_describeProcedure(procedure_name)
 
     if strlen(owner) > 0
         let query = query .
-                    \ "   AND pg_get_userbyid(p.proowner) = '".owner."' "
+                    \ "AND n.nspname = '" . owner . "' "
     endif
     let query = query .
                 \ " ORDER BY p.pronargs;            "
