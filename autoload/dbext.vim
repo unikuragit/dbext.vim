@@ -7202,6 +7202,23 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
         return s:DB_runCmd(cmd, a:sql, a:result)
     endif
 
+    let s:dbext_job = get(s:, 'dbext_job', '')
+    if s:dbext_job_support == 1 && s:dbext_job != '' && job_status(s:dbext_job) == 'run'
+        if exists('s:dbext_job_timer_id')
+            call timer_pause(s:dbext_job_timer_id, 1)
+        endif
+        let ret = confirm("Exists running job. Stop it?", "&Yes\n&No", 2)
+        if ret != 1
+            echo "Canceled"
+            if exists('s:dbext_job_timer_id')
+                call timer_pause(s:dbext_job_timer_id, 0)
+            endif
+            return
+        endif
+
+        call dbext#DB_jobStop()
+    endif
+
     let s:dbext_prev_sql     = a:sql
     let s:dbext_job_result   = ""
     let s:dbext_job_elapsed  = 0
