@@ -445,6 +445,21 @@ function! dbext#DB_execFuncTypeWCheck(name,...)
     endif
 endfunction
 
+function! s:DB_writeFile(output, filename)
+  let newline = dbext#DB_getWType("SQL_newline")
+  let fileencode = dbext#DB_getWType("SQL_fencode")
+
+  let lines = split(a:output, '\r\n\?\|\n', 1)
+  if &enc != fileencode
+    call map(lines, 'iconv(v:val, &enc, fileencode)')
+  endif
+  if newline == 'dos'
+    call map(lines, 'v:val . "\r"')
+  endif
+
+  call writefile(lines, a:filename)
+endfunction
+
 function! s:DB_getTblAlias(table_name)
     let owner      = s:DB_getObjectOwner(a:table_name)
     let table_name = s:DB_getObjectName(a:table_name)
@@ -1002,6 +1017,8 @@ function! s:DB_getDefault(name)
     elseif a:name ==# "PGSQL_cmd_terminator"    |return (exists("g:dbext_default_PGSQL_cmd_terminator")?g:dbext_default_PGSQL_cmd_terminator.'':';')
     elseif a:name ==# "PGSQL_SQL_Top_pat"       |return (exists("g:dbext_default_PGSQL_SQL_Top_pat")?g:dbext_default_PGSQL_SQL_Top_pat.'':'\(.*\)')
     elseif a:name ==# "PGSQL_SQL_Top_sub"       |return (exists("g:dbext_default_PGSQL_SQL_Top_sub")?g:dbext_default_PGSQL_SQL_Top_sub.'':'\1 LIMIT @dbext_topX ')
+    elseif a:name ==# "PGSQL_SQL_newline"       |return (exists("g:dbext_default_PGSQL_SQL_newline")?g:dbext_default_PGSQL_SQL_newline.'':&ff)
+    elseif a:name ==# "PGSQL_SQL_fencode"       |return (exists("g:dbext_default_PGSQL_SQL_fencode")?g:dbext_default_PGSQL_SQL_fencode.'':(&enc?&enc:(has('win32')?'cp932':'utf-8')))
     elseif a:name ==# "PGSQL_pgpass"            |return (exists("g:dbext_default_PGSQL_pgpass")?g:dbext_default_PGSQL_pgpass.'': ((has('maxunix') || has('unix')) ? '$HOME/.pgpass' : '$HOME/pgpass.conf'))
     elseif a:name ==# "PGSQL_cmd_header"        |return (exists("g:dbext_default_PGSQL_cmd_header ")?g:dbext_default_PGSQL_cmd_header.'':"")
     elseif a:name ==# "RDB_bin"                 |return (exists("g:dbext_default_RDB_bin")?g:dbext_default_RDB_bin.'':'mc sql$')
@@ -1016,11 +1033,15 @@ function! s:DB_getDefault(name)
     elseif a:name ==# "SQLITE_cmd_header"       |return (exists("g:dbext_default_SQLITE_cmd_header")?g:dbext_default_SQLITE_cmd_header.'':".mode column\n.headers ON\n")
     elseif a:name ==# "SQLITE_cmd_options"      |return (exists("g:dbext_default_SQLITE_cmd_options")?g:dbext_default_SQLITE_cmd_options.'':'')
     elseif a:name ==# "SQLITE_cmd_terminator"   |return (exists("g:dbext_default_SQLITE_cmd_terminator")?g:dbext_default_SQLITE_cmd_terminator.'':';')
+    elseif a:name ==# "SQLITE_SQL_newline"      |return (exists("g:dbext_default_SQLITE_SQL_newline")?g:dbext_default_SQLITE_SQL_newline.'':&ff)
+    elseif a:name ==# "SQLITE_SQL_fencode"      |return (exists("g:dbext_default_SQLITE_SQL_fencode")?g:dbext_default_SQLITE_SQL_fencode.'':(&enc?&enc:(has('win32')?'cp932':'utf-8')))
     elseif a:name ==# "SQLSRV_bin"              |return (exists("g:dbext_default_SQLSRV_bin")?g:dbext_default_SQLSRV_bin.'':'osql')
     elseif a:name ==# "SQLSRV_cmd_options"      |return (exists("g:dbext_default_SQLSRV_cmd_options")?g:dbext_default_SQLSRV_cmd_options.'':'-w 10000 -r -b -n')
     elseif a:name ==# "SQLSRV_cmd_terminator"   |return (exists("g:dbext_default_SQLSRV_cmd_terminator")?g:dbext_default_SQLSRV_cmd_terminator.'':"\ngo\n")
     elseif a:name ==# "SQLSRV_SQL_Top_pat"      |return (exists("g:dbext_default_SQLSRV_SQL_Top_pat")?g:dbext_default_SQLSRV_SQL_Top_pat.'':'\(\cselect\)')
     elseif a:name ==# "SQLSRV_SQL_Top_sub"      |return (exists("g:dbext_default_SQLSRV_SQL_Top_sub")?g:dbext_default_SQLSRV_SQL_Top_sub.'':'\1 TOP @dbext_topX ')
+    elseif a:name ==# "SQLSRV_SQL_newline"      |return (exists("g:dbext_default_SQLSRV_SQL_newline")?g:dbext_default_SQLSRV_SQL_newline.'':&ff)
+    elseif a:name ==# "SQLSRV_SQL_fencode"      |return (exists("g:dbext_default_SQLSRV_SQL_fencode")?g:dbext_default_SQLSRV_SQL_fencode.'':(&enc?&enc:(has('win32')?'cp932':'utf-8')))
     elseif a:name ==# "CRATE_bin"               |return (exists("g:dbext_default_CRATE_bin")?g:dbext_default_CRATE_bin.'':'crash')
     elseif a:name ==# "CRATE_cmd_header"        |return (exists("g:dbext_default_CRATE_cmd_header")?g:dbext_default_CRATE_cmd_header.'':"")
     elseif a:name ==# "CRATE_cmd_options"       |return (exists("g:dbext_default_CRATE_cmd_options")?g:dbext_default_CRATE_cmd_options.'':'')
@@ -3738,9 +3759,7 @@ function! s:DB_PGSQL_execSql(str)
     endif
 
     if exists('*writefile')
-      call writefile(map(split(output, '\r\n\?\|\n', 1),
-          \ 'iconv(v:val, (&enc != "" ? &enc : ( has("win32") ? "cp932" : "utf-8")), "cp932") . "\r"')
-          \ , s:dbext_tempfile)
+      call s:DB_writeFile(output, s:dbext_tempfile)
     else
       exe 'redir! > ' . s:dbext_tempfile
       silent echo output
@@ -4126,9 +4145,7 @@ function! s:DB_SQLSRV_execSql(str)
     endif
 
     if exists('*writefile')
-      call writefile(map(split(output, '\r\n\?\|\n', 1),
-          \ 'iconv(v:val, (&enc != "" ? &enc : ( has("win32") ? "cp932" : "utf-8")), "cp932") . "\r"')
-          \ , s:dbext_tempfile)
+      call s:DB_writeFile(output, s:dbext_tempfile)
     else
       exe 'redir! > ' . s:dbext_tempfile
       silent echo output
@@ -7901,7 +7918,13 @@ function! s:DB_addToResultBuffer(output, do_clear)
             call setbufline(res_buf_name, 1, "Connection: ".conn_props.' at '.strftime("%H:%M"))
         else
             let lastline = len(getbufline(res_buf_name, 1, '$')) + 1
-            call setbufline(res_buf_name, lastline, iconv(a:output, g:dbext_async_result_buffer_encoding, &enc))
+            let fileencode = dbext#DB_getWType("SQL_fencode")
+            echomsg fileencode
+            if fileencode != &enc
+              call setbufline(res_buf_name, lastline, iconv(a:output, fileencode, &enc))
+            else
+              call setbufline(res_buf_name, lastline, a:output)
+            endif
         endif
         return res_bufnr
     endif
