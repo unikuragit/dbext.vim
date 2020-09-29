@@ -7919,7 +7919,6 @@ function! s:DB_addToResultBuffer(output, do_clear)
         else
             let lastline = len(getbufline(res_buf_name, 1, '$')) + 1
             let fileencode = dbext#DB_getWType("SQL_fencode")
-            echomsg fileencode
             if fileencode != &enc
               call setbufline(res_buf_name, lastline, iconv(a:output, fileencode, &enc))
             else
