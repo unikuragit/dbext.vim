@@ -448,6 +448,7 @@ endfunction
 function! s:DB_writeFile(output, filename)
   let newline = dbext#DB_getWType("SQL_newline")
   let fileencode = dbext#DB_getWType("SQL_fencode")
+  let s:SQL_fileencode = fileencode
 
   let lines = split(a:output, '\r\n\?\|\n', 1)
   if &enc != fileencode
@@ -7918,8 +7919,11 @@ function! s:DB_addToResultBuffer(output, do_clear)
             call setbufline(res_buf_name, 1, "Connection: ".conn_props.' at '.strftime("%H:%M"))
         else
             let lastline = len(getbufline(res_buf_name, 1, '$')) + 1
-            let fileencode = dbext#DB_getWType("SQL_fencode")
-            call setbufline(res_buf_name, lastline, iconv(a:output, fileencode, &enc))
+            if !exists('s:SQL_fileencode') || s:SQL_fileencode == &enc
+              call setbufline(res_buf_name, lastline, a:output)
+            else
+              call setbufline(res_buf_name, lastline, iconv(a:output, s:SQL_fileencode, &enc))
+            endif
         endif
         return res_bufnr
     endif
