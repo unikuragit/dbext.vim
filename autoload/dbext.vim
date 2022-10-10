@@ -72,6 +72,8 @@ let s:dbext_buffer_last       = -1
 let s:dbext_job_support = 0
 if has('channel') && has('job') && has('timers')
     let s:dbext_job_support = 1
+elseif has('nvim') && v:version >= 700
+    let s:dbext_job_support = 1
 endif
 
 " Build internal lists {{{
@@ -7110,6 +7112,7 @@ function! s:DB_runCmd(cmd, sql, result)
         else
             let result = a:result
         endif
+
         let l:shell_error = v:shell_error
 
         call s:DB_addToResultBuffer(result, "add")
@@ -7221,20 +7224,26 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
     endif
 
     let s:dbext_job = get(s:, 'dbext_job', '')
-    if s:dbext_job_support == 1 && s:dbext_job != '' && job_status(s:dbext_job) == 'run'
-        if exists('s:dbext_job_timer_id')
-            call timer_pause(s:dbext_job_timer_id, 1)
-        endif
-        let ret = confirm("Exists running job. Stop it?", "&Yes\n&No", 2)
-        if ret != 1
-            echo "Canceled"
-            if exists('s:dbext_job_timer_id')
-                call timer_pause(s:dbext_job_timer_id, 0)
-            endif
-            return
-        endif
+    if !has('nvim')
+      if s:dbext_job_support == 1 && s:dbext_job != '' && job_status(s:dbext_job) == 'run'
+          if exists('s:dbext_job_timer_id')
+              call timer_pause(s:dbext_job_timer_id, 1)
+          endif
+          let ret = confirm("Exists running job. Stop it?", "&Yes\n&No", 2)
+          if ret != 1
+              echo "Canceled"
+              if exists('s:dbext_job_timer_id')
+                  call timer_pause(s:dbext_job_timer_id, 0)
+              endif
+              return
+          endif
 
-        call dbext#DB_jobStop()
+          call dbext#DB_jobStop()
+      endif
+    else
+      if s:dbext_job != ''
+        call jobstop(s:dbext_job)
+      endif
     endif
 
     let s:dbext_prev_sql     = a:sql
@@ -7249,7 +7258,11 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
     let l:exec_bin = s:DB_get('SQLSRV_bin')
 
     let l:options = {}
-    let l:options['callback'] = function('s:DB_runCmdJobOnCallback')
+    if !has('nvim')
+      let l:options['callback'] = function('s:DB_runCmdJobOnCallback')
+    else
+      let l:options['on_stdout'] = function('s:DB_runCmdJobOnCallbackNVim')
+    endif
     let l:options['close_cb'] = function('s:DB_runCmdJobClose')
     let l:options['exit_cb'] = function('s:DB_runCmdJobOnExit')
     let l:options['out_io'] = 'pipe'
@@ -7297,7 +7310,13 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
     exec s:dbext_prev_winnr."wincmd w"
 
     "echomsg "DB_runCmdJobSupport: " . cmd
-    let s:dbext_job = job_start(cmd, l:options)
+    if !has('nvim')
+      let s:dbext_job = job_start(cmd, l:options)
+      let l:job_status = job_status(s:dbext_job) == "run"
+    else
+      let s:dbext_job = jobstart(cmd, l:options)
+      let l:job_status = s:dbext_job > 0
+    endif
     " let s:dbext_job = job_start( 
     "             \ cmd, 
     "             \ {
@@ -7313,7 +7332,8 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
     "             "\ 'out_cb': function('s:DB_runCmdJobOutput'), 
     "             "\ 'err_cb': function('s:DB_runCmdJobError'), 
 
-    if job_status(s:dbext_job) == "run"
+
+    if l:job_status
         call dbext#DB_jobTimerStart()
         let job_msg = 'job started:' . 
                     \ strftime("%H:%M:%S", localtime()) . 
@@ -7357,6 +7377,16 @@ function! s:DB_runCmdJobUpdateStatus(timer)
     else
         call dbext#DB_jobTimerStop()
     endif
+endfunction
+" Support nvim experimental.
+function! s:DB_runCmdJobOnCallbackNVim(...)
+  if type(a:2) == v:t_string
+    call s:DB_runCmdJobOnCallback(a:0, substitute(a:2, '\r$', '', ''))
+  elseif type(a:2) == v:t_list
+    for l:per in a:2
+      call s:DB_runCmdJobOnCallback(a:0, substitute(l:per, '\r$', '', ''))
+    endfor
+  endif
 endfunction
 " invoked on "callback" when job output
 function! s:DB_runCmdJobOnCallback(channel, msg)
@@ -7540,6 +7570,9 @@ function! dbext#DB_jobStatus()
     endif
 endfunction
 function! dbext#DB_jobTimerStart()
+    if has('nvim')
+      return
+    endif
     if s:dbext_job_support == 1
         let job_status = ''
         if exists('s:dbext_job') 
