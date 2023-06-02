@@ -1015,6 +1015,8 @@ function! s:DB_getDefault(name)
     elseif a:name ==# "ORA_cmd_terminator"      |return (exists("g:dbext_default_ORA_cmd_terminator")?g:dbext_default_ORA_cmd_terminator.'':";")
     elseif a:name ==# "ORA_SQL_Top_pat"         |return (exists("g:dbext_default_ORA_SQL_Top_pat")?g:dbext_default_ORA_SQL_Top_pat.'':'\(.*\)')
     elseif a:name ==# "ORA_SQL_Top_sub"         |return (exists("g:dbext_default_ORA_SQL_Top_sub")?g:dbext_default_ORA_SQL_Top_sub.'':'SELECT * FROM (\1) WHERE rownum <= @dbext_topX ')
+    elseif a:name ==# "ORA_SQL_newline"         |return (exists("g:dbext_default_ORA_SQL_newline")?g:dbext_default_ORA_SQL_newline.'':&ff)
+    elseif a:name ==# "ORA_SQL_fencode"         |return (exists("g:dbext_default_ORA_SQL_fencode")?g:dbext_default_ORA_SQL_fencode.'':(&enc?&enc:(has('win32')?'cp932':'utf-8')))
     elseif a:name ==# "PGSQL_bin"               |return (exists("g:dbext_default_PGSQL_bin")?g:dbext_default_PGSQL_bin.'':'psql')
     elseif a:name ==# "PGSQL_cmd_options"       |return (exists("g:dbext_default_PGSQL_cmd_options")?g:dbext_default_PGSQL_cmd_options.'':'')
     elseif a:name ==# "PGSQL_cmd_terminator"    |return (exists("g:dbext_default_PGSQL_cmd_terminator")?g:dbext_default_PGSQL_cmd_terminator.'':';')
@@ -3550,9 +3552,13 @@ function! s:DB_ORA_execSql(str)
     " Added quit to the end of the command to exit SQLPLUS
     let output = output . "\nquit"
 
-    exe 'redir! > ' . s:dbext_tempfile
-    silent echo output
-    redir END
+    if exists('*writefile')
+      call s:DB_writeFile(output, s:dbext_tempfile)
+    else
+      exe 'redir! > ' . s:dbext_tempfile
+      silent echo output
+      redir END
+    endif
 
     let dbext_bin = s:DB_fullPath2Bin(dbext#DB_getWType("bin"))
 
