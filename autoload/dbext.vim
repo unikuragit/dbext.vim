@@ -1013,8 +1013,11 @@ function! s:DB_getDefault(name)
                         \ "set tab off\n\n")
     elseif a:name ==# "ORA_cmd_options"         |return (exists("g:dbext_default_ORA_cmd_options")?g:dbext_default_ORA_cmd_options.'':"-L -S")
     elseif a:name ==# "ORA_cmd_terminator"      |return (exists("g:dbext_default_ORA_cmd_terminator")?g:dbext_default_ORA_cmd_terminator.'':";")
+    elseif a:name ==# "ORA_cmd_terminator_auto" |return (exists("g:dbext_default_ORA_cmd_terminator_auto")?g:dbext_default_ORA_cmd_terminator_auto.'':"0")
     elseif a:name ==# "ORA_SQL_Top_pat"         |return (exists("g:dbext_default_ORA_SQL_Top_pat")?g:dbext_default_ORA_SQL_Top_pat.'':'\(.*\)')
     elseif a:name ==# "ORA_SQL_Top_sub"         |return (exists("g:dbext_default_ORA_SQL_Top_sub")?g:dbext_default_ORA_SQL_Top_sub.'':'SELECT * FROM (\1) WHERE rownum <= @dbext_topX ')
+    elseif a:name ==# "ORA_SQL_newline"         |return (exists("g:dbext_default_ORA_SQL_newline")?g:dbext_default_ORA_SQL_newline.'':&ff)
+    elseif a:name ==# "ORA_SQL_fencode"         |return (exists("g:dbext_default_ORA_SQL_fencode")?g:dbext_default_ORA_SQL_fencode.'':(&enc?&enc:(has('win32')?'cp932':'utf-8')))
     elseif a:name ==# "ORA_SQL_newline"         |return (exists("g:dbext_default_ORA_SQL_newline")?g:dbext_default_ORA_SQL_newline.'':&ff)
     elseif a:name ==# "ORA_SQL_fencode"         |return (exists("g:dbext_default_ORA_SQL_fencode")?g:dbext_default_ORA_SQL_fencode.'':(&enc?&enc:(has('win32')?'cp932':'utf-8')))
     elseif a:name ==# "PGSQL_bin"               |return (exists("g:dbext_default_PGSQL_bin")?g:dbext_default_PGSQL_bin.'':'psql')
@@ -3536,6 +3539,7 @@ function! s:DB_ORA_execSql(str)
     " All defaults are specified in the DB_getDefault function.
     " This contains the defaults settings for all database types
     let terminator = dbext#DB_getWType("cmd_terminator")
+    let terminator_auto = dbext#DB_getWType("cmd_terminator_auto")
 
     let output = dbext#DB_getWType("cmd_header")
     " Check if a login_script has been specified
@@ -3544,10 +3548,17 @@ function! s:DB_ORA_execSql(str)
     " Only include a command terminator if one has not already
     " been added
     " Added quit to the end of the command to exit SQLPLUS
-    if output !~ s:DB_escapeStr(terminator) .
-                \ '['."\n".' \t]*$'
-        let output = output . "\n" . terminator
-     endif
+    if terminator_auto == 0
+      if output !~ s:DB_escapeStr(terminator) .
+                  \ '['."\n".' \t]*$'
+          let output = output . "\n" . terminator
+       endif
+    else
+      let output = substitute(output, '[[:space:]]\+$', '', '')
+      if output[-1:] !~ ';\|/'
+          let output = output . "\n;"
+       endif
+    endif
 
     " Added quit to the end of the command to exit SQLPLUS
     let output = output . "\nquit"
