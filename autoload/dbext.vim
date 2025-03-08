@@ -7271,7 +7271,13 @@ function! s:DB_runCmdJobSupportWithEnv(binary, args, sql, result, env)
       endif
     else
       if s:dbext_job != ''
+        let ret = confirm("Exists running job. Stop it?", "&Yes\n&No", 2)
+        if ret != 1
+            echo "Canceled"
+            return
+        endif
         call jobstop(s:dbext_job)
+        let s:dbext_nvim_job_force_stop = 1
       endif
     endif
 
@@ -7289,36 +7295,40 @@ function! s:DB_runCmdJobSupportWithEnv(binary, args, sql, result, env)
     let l:options = {}
     if !has('nvim')
       let l:options['callback'] = function('s:DB_runCmdJobOnCallback')
+      let l:options['close_cb'] = function('s:DB_runCmdJobClose')
+      let l:options['exit_cb'] = function('s:DB_runCmdJobOnExit')
+      let l:options['out_io'] = 'pipe'
+      let l:options['err_io'] = 'out'
+      if !(l:db_type == 'SQLSRV' && l:exec_bin == 'sqlcmd')
+        let l:options['in_io'] = 'null'
+      endif
+      if cmd =~ s:DB_get('job_pipe_regex')
+          " If the cmd pipes in the SQL from the dbext_tempfile
+          " then remove this from the command line and specify
+          " it using the in_io and in_name job options
+          let regex = '^\(.*\)\s\+' . s:DB_get('job_pipe_regex') . '\s*\(' . escape(s:dbext_tempfile, '\\/.*$^~[]') . '\)'
+          let cmd = substitute(cmd, regex, '\1', '')
+          let regex = s:DB_get('job_quotee_regex')
+          if regex != ''
+              let cmd = substitute(cmd, '"', '', 'g')
+          endif
+          "echomsg "DB_runCmdJobSupport: regex:" . regex
+          "echomsg "DB_runCmdJobSupport: cmd:" . cmd
+          "let cmd = substitute(cmd, '^\(.*\)\s\+<\s\+\(\S\+\)', 'cat \2 | \1', '')
+          " echomsg cmd
+          let l:options['in_io'] = 'file'
+          let l:options['in_name'] = s:dbext_tempfile
+      endif
+      let l:options['out_mode'] = 'nl'
+      let l:options['err_mode'] = 'nl'
+      let l:options['stoponexit'] = 'term'
     else
+      let l:options['stdout_buffered'] = v:false
+      let l:options['stderr_buffered'] = v:true
       let l:options['on_stdout'] = function('s:DB_runCmdJobOnCallbackNVim')
+      let l:options['on_stderr'] = function('s:DB_runCmdJobOnCallbackNVim')
+      let l:options['on_exit'] = function('s:DB_runCmdJobOnExitNVim')
     endif
-    let l:options['close_cb'] = function('s:DB_runCmdJobClose')
-    let l:options['exit_cb'] = function('s:DB_runCmdJobOnExit')
-    let l:options['out_io'] = 'pipe'
-    let l:options['err_io'] = 'out'
-    if !(l:db_type == 'SQLSRV' && l:exec_bin == 'sqlcmd')
-      let l:options['in_io'] = 'null'
-    endif
-    if cmd =~ s:DB_get('job_pipe_regex')
-        " If the cmd pipes in the SQL from the dbext_tempfile
-        " then remove this from the command line and specify
-        " it using the in_io and in_name job options
-        let regex = '^\(.*\)\s\+' . s:DB_get('job_pipe_regex') . '\s*\(' . escape(s:dbext_tempfile, '\\/.*$^~[]') . '\)'
-        let cmd = substitute(cmd, regex, '\1', '')
-        let regex = s:DB_get('job_quotee_regex')
-        if regex != ''
-            let cmd = substitute(cmd, '"', '', 'g')
-        endif
-        "echomsg "DB_runCmdJobSupport: regex:" . regex
-        "echomsg "DB_runCmdJobSupport: cmd:" . cmd
-        "let cmd = substitute(cmd, '^\(.*\)\s\+<\s\+\(\S\+\)', 'cat \2 | \1', '')
-        " echomsg cmd
-        let l:options['in_io'] = 'file'
-        let l:options['in_name'] = s:dbext_tempfile
-    endif
-    let l:options['out_mode'] = 'nl'
-    let l:options['err_mode'] = 'nl'
-    let l:options['stoponexit'] = 'term'
     let l:options['env'] = a:env
 
     " Store current connection parameters
@@ -7380,7 +7390,11 @@ function! s:DB_runCmdJobSupportWithEnv(binary, args, sql, result, env)
         "     call s:DB_infoMsg('dbext ' . job_msg)
         " endif
     else
-        let job_msg = "dbext job failed to start running without job.  Error:" . string(job_info(s:dbext_job))
+        if !has('nvim')
+          let job_msg = "dbext job failed to start running without job.  Error:" . string(job_info(s:dbext_job))
+        else
+          let job_msg = "dbext job failed to start running without nvim job.  Error:")
+        endif
         call s:DB_addToResultBuffer(job_msg, "add")
         " call s:DB_warningMsg("dbext job failed to start running without job.  Error:" . string(job_info(s:dbext_job)))
         " Try again without using jobs
@@ -7420,7 +7434,13 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
       endif
     else
       if s:dbext_job != ''
+        let ret = confirm("Exists running job. Stop it?", "&Yes\n&No", 2)
+        if ret != 1
+            echo "Canceled"
+            return
+        endif
         call jobstop(s:dbext_job)
+        let s:dbext_nvim_job_force_stop = 1
       endif
     endif
 
@@ -7438,36 +7458,40 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
     let l:options = {}
     if !has('nvim')
       let l:options['callback'] = function('s:DB_runCmdJobOnCallback')
+      let l:options['close_cb'] = function('s:DB_runCmdJobClose')
+      let l:options['exit_cb'] = function('s:DB_runCmdJobOnExit')
+      let l:options['out_io'] = 'pipe'
+      let l:options['err_io'] = 'out'
+      if !(l:db_type == 'SQLSRV' && l:exec_bin == 'sqlcmd')
+        let l:options['in_io'] = 'null'
+      endif
+      if cmd =~ s:DB_get('job_pipe_regex')
+          " If the cmd pipes in the SQL from the dbext_tempfile
+          " then remove this from the command line and specify
+          " it using the in_io and in_name job options
+          let regex = '^\(.*\)\s\+' . s:DB_get('job_pipe_regex') . '\s*\(' . escape(s:dbext_tempfile, '\\/.*$^~[]') . '\)'
+          let cmd = substitute(cmd, regex, '\1', '')
+          let regex = s:DB_get('job_quotee_regex')
+          if regex != ''
+              let cmd = substitute(cmd, '"', '', 'g')
+          endif
+          "echomsg "DB_runCmdJobSupport: regex:" . regex
+          "echomsg "DB_runCmdJobSupport: cmd:" . cmd
+          "let cmd = substitute(cmd, '^\(.*\)\s\+<\s\+\(\S\+\)', 'cat \2 | \1', '')
+          " echomsg cmd
+          let l:options['in_io'] = 'file'
+          let l:options['in_name'] = s:dbext_tempfile
+      endif
+      let l:options['out_mode'] = 'nl'
+      let l:options['err_mode'] = 'nl'
+      let l:options['stoponexit'] = 'term'
     else
+      let l:options['stdout_buffered'] = v:false
+      let l:options['stderr_buffered'] = v:true
       let l:options['on_stdout'] = function('s:DB_runCmdJobOnCallbackNVim')
+      let l:options['on_stderr'] = function('s:DB_runCmdJobOnCallbackNVim')
+      let l:options['on_exit'] = function('s:DB_runCmdJobOnExitNVim')
     endif
-    let l:options['close_cb'] = function('s:DB_runCmdJobClose')
-    let l:options['exit_cb'] = function('s:DB_runCmdJobOnExit')
-    let l:options['out_io'] = 'pipe'
-    let l:options['err_io'] = 'out'
-    if !(l:db_type == 'SQLSRV' && l:exec_bin == 'sqlcmd')
-      let l:options['in_io'] = 'null'
-    endif
-    if cmd =~ s:DB_get('job_pipe_regex')
-        " If the cmd pipes in the SQL from the dbext_tempfile
-        " then remove this from the command line and specify
-        " it using the in_io and in_name job options
-        let regex = '^\(.*\)\s\+' . s:DB_get('job_pipe_regex') . '\s*\(' . escape(s:dbext_tempfile, '\\/.*$^~[]') . '\)'
-        let cmd = substitute(cmd, regex, '\1', '')
-        let regex = s:DB_get('job_quotee_regex')
-        if regex != ''
-            let cmd = substitute(cmd, '"', '', 'g')
-        endif
-        "echomsg "DB_runCmdJobSupport: regex:" . regex
-        "echomsg "DB_runCmdJobSupport: cmd:" . cmd
-        "let cmd = substitute(cmd, '^\(.*\)\s\+<\s\+\(\S\+\)', 'cat \2 | \1', '')
-        " echomsg cmd
-        let l:options['in_io'] = 'file'
-        let l:options['in_name'] = s:dbext_tempfile
-    endif
-    let l:options['out_mode'] = 'nl'
-    let l:options['err_mode'] = 'nl'
-    let l:options['stoponexit'] = 'term'
 
     " Store current connection parameters
     call s:DB_saveConnParameters()
@@ -7523,7 +7547,11 @@ function! s:DB_runCmdJobSupport(binary, args, sql, result)
         "     call s:DB_infoMsg('dbext ' . job_msg)
         " endif
     else
-        let job_msg = "dbext job failed to start running without job.  Error:" . string(job_info(s:dbext_job))
+        if !has('nvim')
+          let job_msg = "dbext job failed to start running without job.  Error:" . string(job_info(s:dbext_job))
+        else
+          let job_msg = "dbext job failed to start running without nvim job.  Error:")
+        endif
         call s:DB_addToResultBuffer(job_msg, "add")
         " call s:DB_warningMsg("dbext job failed to start running without job.  Error:" . string(job_info(s:dbext_job)))
         " Try again without using jobs
@@ -7566,6 +7594,44 @@ function! s:DB_runCmdJobOnCallbackNVim(...)
     endfor
   endif
 endfunction
+function! s:DB_runCmdJobOnExitNVim(...)
+  if !exists('s:dbext_nvim_job_force_stop')
+    let s:dbext_job = ''
+  else
+    unlet s:dbext_nvim_job_force_stop
+  endif
+  if s:DB_get('use_result_buffer') == 1
+    let l:db_type  = s:DB_get('type')
+
+    if exists('*DBextPostResult')
+      let res_buf_name   = s:DB_resBufName()
+      if s:DB_switchToBuffer(res_buf_name, res_buf_name, 'result_bufnr') == 1
+        " Switch back to the result buffer and execute
+        " the user defined function
+        call DBextPostResult(l:db_type, (s:DB_get('result_bufnr')+0))
+      endif
+    endif
+    if s:DB_get('autoclose') == '1' && s:dbext_result_count <= s:DB_get('autoclose_min_lines')
+      " Determine rows affected
+      if l:db_type !~ '\<DBI\>\|\<ODBC\>'
+        call s:DB_{l:db_type}_stripHeaderFooter(result)
+      endif
+      if s:dbext_result_count >= 2
+        if getline(2) !~ '^SQLCode:'
+          call dbext#DB_windowClose(s:DB_resBufName())
+          echon 'dbext: Rows affected:'.g:dbext_rows_affected.' Autoclose enabled, DBSetOption autoclose=0 to disable'
+        endif
+      else
+        call dbext#DB_windowClose(s:DB_resBufName())
+        " echon 'dbext: Autoclose enabled, DBSetOption autoclose=0 to disable'
+        echon 'dbext: Rows affected:'.g:dbext_rows_affected.' Autoclose enabled, DBSetOption autoclose=0 to disable'
+      endif
+    endif
+  endif
+
+  return
+endfunction
+
 " invoked on "callback" when job output
 function! s:DB_runCmdJobOnCallback(channel, msg)
     " echomsg "DB_runCmdJobOnCallback ch:" . ch_status(a:channel) . "  msg: " . a:msg
@@ -7714,6 +7780,7 @@ endfunction
 function! dbext#DB_jobStop(...)
     if s:dbext_job_support == 1
         if exists('s:dbext_job')
+          if !has('nvim')
             if a:0 > 0
                 let job_stop_rc = job_stop(s:dbext_job, a:1)
             else
@@ -7729,6 +7796,12 @@ function! dbext#DB_jobStop(...)
             if job_status != "run"
                 call dbext#DB_jobTimerStop()
             endif
+          else
+            let job_stop_rc = jobstop(s:dbext_job)
+            if job_stop_rc == 0
+                call s:DB_warningMsg("dbext job stop failed. invalid nvim job id:" . s:dbext_job)
+            endif
+          endif
         else
             call s:DB_warningMsg("dbext no active job")
         endif
