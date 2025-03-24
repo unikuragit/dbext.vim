@@ -7977,7 +7977,10 @@ function! s:DB_switchToBuffer(buf_name, buf_file, get_buf_nr_name)
         endif
     else
         " If the buffer is visible, switch to it
-        if g:dbext_async_write_result_buffer && l:db_type !~ '\<DBI\>\|\<ODBC\>'
+        if g:dbext_async_write_result_buffer
+          return 1
+        endif
+        if l:db_type !~ '\<DBI\>\|\<ODBC\>'
           return 0
         endif
         exec bufwinnr(buf_nr) . "wincmd w"
