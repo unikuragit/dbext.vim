@@ -7974,6 +7974,32 @@ function! s:DB_switchToBuffer(buf_name, buf_file, get_buf_nr_name)
           setlocal noswapfile
           setlocal buftype=nofile
           setlocal nonumber
+          nnoremap <buffer> <silent> R   :DBResultsRefresh<cr>
+          nnoremap <buffer> <silent> O   :DBOrientationToggle<cr>
+          nnoremap <buffer> <silent> dd  :call dbext#DB_removeVariable()<CR>
+          xnoremap <buffer> <silent> d   :call dbext#DB_removeVariable()<CR>
+          nnoremap <buffer> q                :DBResultsClose<cr>
+          nnoremap <buffer> <silent> a       :call <SID>DB_set('autoclose', (s:DB_get('autoclose')==1?0:1))<CR>
+          if hasmapto('DB_historyDel')
+              try
+                  silent! unmap <buffer> dd
+              catch
+              endtry
+          endif
+          if hasmapto('DB_historyUse')
+              try
+                  silent! unmap <buffer> <2-LeftMouse>
+                  silent! unmap <buffer> <CR>
+              catch
+              endtry
+          endif
+          if hasmapto('DB_removeVariable')
+              try
+                  silent! unmap  <buffer> dd
+                  silent! xunmap <buffer> d
+              catch
+              endtry
+          endif
         endif
     else
         " If the buffer is visible, switch to it
@@ -8185,7 +8211,7 @@ function! s:DB_addToResultBuffer(output, do_clear)
     call s:DB_saveSize(res_buf_name)
 
     " Open buffer in required location
-    if s:DB_switchToBuffer(res_buf_name, res_buf_name, 'result_bufnr') == 1
+    if s:DB_switchToBuffer(res_buf_name, res_buf_name, 'result_bufnr') == 1 && g:dbext_async_write_result_buffer != 1
         let res_bufnr      = bufnr('%')
         nnoremap <buffer> <silent> R   :DBResultsRefresh<cr>
         nnoremap <buffer> <silent> O   :DBOrientationToggle<cr>
